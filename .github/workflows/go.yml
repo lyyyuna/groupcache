@@ -26,8 +26,8 @@ jobs:
 
     - name: GolangCI Lint
       run: |
-        curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $(go env GOPATH)/bin v1.18.0
-        golangci-lint run --out-format checkstyle > golangci-lint.report || true
+        curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s v1.18.0
+        ./bin/golangci-lint run --out-format checkstyle > golangci-lint.report || true
 
     - name: SonarQube Scan
       uses: sonarsource/sonarcloud-github-action@master
