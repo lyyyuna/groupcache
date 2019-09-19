@@ -20,5 +20,12 @@ jobs:
       run: |
         go mod download
 
-    - name: Build
-      run: go build -v .
+    - name: Unit Test
+      run: |
+        go test ./... -coverprofile=coverage.out 
+
+    - name: SonarQube Scan
+      uses: sonarsource/sonarcloud-github-action@master
+      env: # Or as an environment variable
+        SONAR_TOKEN: ${{ secrets.SONARTOKEN }}
+
