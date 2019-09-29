@@ -1,4 +1,4 @@
-package consistenthash
+package consistenhash
 
 import (
 	"hash/crc32"
@@ -6,33 +6,29 @@ import (
 	"strconv"
 )
 
+// Hash function type
 type Hash func(data []byte) uint32
 
+// Map structure
 type Map struct {
-	hash     Hash
-	replicas int
-	keys     []int // Sorted
-	hashMap  map[int]string
+	replicas int            // 每个 key 的副本数量
+	hash     Hash           // 哈希函数
+	keys     []int          // 每一个哈希点, keep it sorted
+	hashMap  map[int]string // 哈希环上的一个点到服务器名的映射
 }
 
-func New(replicas int, fn Hash) *Map {
+// New a map consistentmap
+func New(replicas int) *Map {
 	m := &Map{
 		replicas: replicas,
-		hash:     fn,
+		hash:     crc32.ChecksumIEEE,
 		hashMap:  make(map[int]string),
 	}
-	if m.hash == nil {
-		m.hash = crc32.ChecksumIEEE
-	}
+
 	return m
 }
 
-// Returns true if there are no items available.
-func (m *Map) IsEmpty() bool {
-	return len(m.keys) == 0
-}
-
-// Adds some keys to the hash.
+// Add some keys to the hash
 func (m *Map) Add(keys ...string) {
 	for _, key := range keys {
 		for i := 0; i < m.replicas; i++ {
@@ -41,24 +37,25 @@ func (m *Map) Add(keys ...string) {
 			m.hashMap[hash] = key
 		}
 	}
+
 	sort.Ints(m.keys)
 }
 
-// Gets the closest item in the hash to the provided key.
+// Get one value from hash
 func (m *Map) Get(key string) string {
-	if m.IsEmpty() {
+	if len(m.keys) == 0 {
 		return ""
 	}
 
 	hash := int(m.hash([]byte(key)))
 
-	// Binary search for appropriate replica.
-	idx := sort.Search(len(m.keys), func(i int) bool { return m.keys[i] >= hash })
-
-	// Means we have cycled back to the first replica.
-	if idx == len(m.keys) {
-		idx = 0
+	// 二分查找，即顺时针在哈希环上离这个key 最近的一个 服务器或服务器副本
+	i := sort.Search(len(m.keys), func(i int) bool {
+		return m.keys[i] >= hash
+	})
+	if i == len(m.keys) {
+		i = 0
 	}
 
-	return m.hashMap[m.keys[idx]]
+	return m.hashMap[m.keys[i]]
 }
