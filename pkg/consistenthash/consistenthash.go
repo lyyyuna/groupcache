@@ -1,3 +1,20 @@
+/*
+Copyright 2013 Google Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+// Package consistenthash provides an implementation of a ring hash.
 package consistenhash
 
 import (
@@ -6,29 +23,33 @@ import (
 	"strconv"
 )
 
-// Hash function type
 type Hash func(data []byte) uint32
 
-// Map structure
 type Map struct {
-	replicas int            // 每个 key 的副本数量
-	hash     Hash           // 哈希函数
-	keys     []int          // 每一个哈希点, keep it sorted
-	hashMap  map[int]string // 哈希环上的一个点到服务器名的映射
+	hash     Hash
+	replicas int
+	keys     []int // Sorted
+	hashMap  map[int]string
 }
 
-// New a map consistentmap
-func New(replicas int) *Map {
+func New(replicas int, fn Hash) *Map {
 	m := &Map{
 		replicas: replicas,
-		hash:     crc32.ChecksumIEEE,
+		hash:     fn,
 		hashMap:  make(map[int]string),
 	}
-
+	if m.hash == nil {
+		m.hash = crc32.ChecksumIEEE
+	}
 	return m
 }
 
-// Add some keys to the hash
+// Returns true if there are no items available.
+func (m *Map) IsEmpty() bool {
+	return len(m.keys) == 0
+}
+
+// Adds some keys to the hash.
 func (m *Map) Add(keys ...string) {
 	for _, key := range keys {
 		for i := 0; i < m.replicas; i++ {
@@ -37,25 +58,24 @@ func (m *Map) Add(keys ...string) {
 			m.hashMap[hash] = key
 		}
 	}
-
 	sort.Ints(m.keys)
 }
 
-// Get one value from hash
+// Gets the closest item in the hash to the provided key.
 func (m *Map) Get(key string) string {
-	if len(m.keys) == 0 {
+	if m.IsEmpty() {
 		return ""
 	}
 
 	hash := int(m.hash([]byte(key)))
 
-	// 二分查找，即顺时针在哈希环上离这个key 最近的一个 服务器或服务器副本
-	i := sort.Search(len(m.keys), func(i int) bool {
-		return m.keys[i] >= hash
-	})
-	if i == len(m.keys) {
-		i = 0
+	// Binary search for appropriate replica.
+	idx := sort.Search(len(m.keys), func(i int) bool { return m.keys[i] >= hash })
+
+	// Means we have cycled back to the first replica.
+	if idx == len(m.keys) {
+		idx = 0
 	}
 
-	return m.hashMap[m.keys[i]]
+	return m.hashMap[m.keys[idx]]
 }
