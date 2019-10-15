@@ -28,3 +28,45 @@ func New(maxEntries int) *Cache {
 		cache:      make(map[interface{}]*list.Element),
 	}
 }
+
+// Add adds a value to the cache
+func (c *Cache) Add(key Key, value interface{}) {
+	if c.cache == nil {
+		c.cache = make(map[interface{}]*list.Element)
+		c.ll = list.New()
+	}
+
+	if ee, ok := c.cache[key]; ok {
+		c.ll.MoveToFront(ee)
+		ee.Value.(*entry).value = value
+		return
+	}
+
+	ele := c.ll.PushFront(&entry{key, value})
+	c.cache[key] = ele
+	if c.MaxEntries != 0 && c.ll.Len() > c.MaxEntries {
+		c.RemoveOldest()
+	}
+}
+
+// RemoveOldest removes the oldest item from the cache
+func (c *Cache) RemoveOldest() {
+	if c.cache == nil {
+		return
+	}
+
+	ele := c.ll.Back()
+	if ele != nil {
+		c.removeElement(ele)
+	}
+}
+
+func (c *Cache) removeElement(e *list.Element) {
+	c.ll.Remove(e)
+	kv := e.Value.(*entry)
+	delete(c.cache, kv.key)
+
+	if c.OnEvicted != nil {
+		c.OnEvicted(kv.key, kv.value)
+	}
+}
