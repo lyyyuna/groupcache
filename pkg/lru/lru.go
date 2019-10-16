@@ -70,3 +70,47 @@ func (c *Cache) removeElement(e *list.Element) {
 		c.OnEvicted(kv.key, kv.value)
 	}
 }
+
+// Get looks up a key's from the cache
+func (c *Cache) Get(key Key) (value interface{}, ok bool) {
+	if c.cache == nil {
+		return
+	}
+
+	if ele, hit := c.cache[key]; hit {
+		c.ll.MoveToFront(ele)
+		return ele.Value.(*entry).value, true
+	}
+	return
+}
+
+// Len returns the length of the cache
+func (c *Cache) Len() int {
+	if c.cache == nil {
+		return 0
+	}
+
+	return c.ll.Len()
+}
+
+// Clear purges all stored items from the cache
+func (c *Cache) Clear() {
+	if c.OnEvicted != nil {
+		for _, e := range c.cache {
+			kv := e.Value.(*entry)
+			c.OnEvicted(kv.key, kv.value)
+		}
+	}
+
+	c.cache = nil
+	c.ll = nil
+}
+
+func (c *Cache) Remove(key Key) {
+	if c.cache == nil {
+		return
+	}
+	if ele, ok := c.cache[key]; ok {
+		c.removeElement(ele)
+	}
+}
