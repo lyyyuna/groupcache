@@ -154,7 +154,7 @@ func (s *protoSink) SetProto(m proto.Message) error {
 // AllocatingBytesSliceSink returns a Sink that allocates
 // a byte slice to hold the received value and assigns
 // it to *dst. The memory is not retained by the groupcache
-func AllocatingBytesSliceSink(dst *[]byte) Sink {
+func AllocatingByteSliceSink(dst *[]byte) Sink {
 	return &allocBytesSink{dst: dst}
 }
 
@@ -264,4 +264,21 @@ func (s *truncBytesSink) SetString(v string) error {
 	s.v.b = nil
 	s.v.s = v
 	return nil
+}
+
+func setSinkView(s Sink, v ByteView) error {
+	// A viewSetter is a Sink that can also receive its value from
+	// a ByteView. This is a fast path to minimize copies when the
+	// item was already cached locally in memory (where it's
+	// cached as a ByteView)
+	type viewSetter interface {
+		setView(v ByteView) error
+	}
+	if vs, ok := s.(viewSetter); ok {
+		return vs.setView(v)
+	}
+	if v.b != nil {
+		return s.SetBytes(v.b)
+	}
+	return s.SetString(v.s)
 }

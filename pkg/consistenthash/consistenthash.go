@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package consistenthash provides an implementation of a ring hash.
-package consistenhash
+package consistenthash
 
 import (
 	"hash/crc32"
